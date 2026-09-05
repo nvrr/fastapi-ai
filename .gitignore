@@ -1,0 +1,5 @@
+/venv
+/.idea
+/fastapi.db
+/.pytest_cacheit
+/._pycache_

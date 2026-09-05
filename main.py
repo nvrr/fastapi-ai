@@ -1,13 +1,16 @@
 from fastapi import FastAPI
 from app.config.database import Base, engine
 from app.models.user import User
+from app.routes import user
 
 def create_application():
-     # Create database tables
+     # Create database tables for  sqlalchmey to recognie
     print("Tables:", Base.metadata.tables.keys())
     Base.metadata.create_all(bind=engine)
 
     application = FastAPI()
+    # routes
+    application.include_router(user.user_router)
     return application
 
 
