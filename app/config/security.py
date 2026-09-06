@@ -1,9 +1,22 @@
+import logging
+
+import jwt
 from passlib.context import CryptContext
+import base64
+from datetime import datetime
+from sqlalchemy.orm import joinedload, Session
+from datetime import datetime, timedelta
+from app.config import settings
+from app.config.database import get_session
+from app.config.settings import get_settings
+from app.models.user import UserToken
+
+SPECIAL_CHARACTERS = ['@', '#', '$', '%', '=', ':', '?', '.', '/', '|', '~', '>']
+
+settings = get_settings()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-
-SPECIAL_CHARACTERS = ['@', '#', '$', '%', '=', ':', '?', '.', '/', '|', '~', '>']
 
 def hash_password(password):
     return pwd_context.hash(password)
@@ -30,3 +43,57 @@ def is_password_strong_enough(password: str) -> bool:
         return False
 
     return True
+
+
+
+
+
+
+
+def str_encode(string: str) -> str:
+    return base64.b85encode(string.encode('ascii')).decode('ascii')
+
+
+def str_decode(string: str) -> str:
+    return base64.b85decode(string.encode('ascii')).decode('ascii')
+
+# decode token
+def get_token_payload(token: str, secret: str, algo: str):
+    try:
+        payload = jwt.decode(token, secret, algorithms=algo)
+    except Exception as jwt_exec:
+        logging.debug(f"JWT Error: {str(jwt_exec)}")
+        payload = None
+    return payload
+
+# generatin encoded token
+def generate_token(payload: dict, secret: str, algo: str, expiry: timedelta):
+    expire = datetime.utcnow() + expiry
+    payload.update({"exp": expire})
+    return jwt.encode(payload, secret, algorithm=algo)
+
+# get user after decode by decode token methode: get_token_payload
+async def get_token_user(token: str, db):
+    payload = get_token_payload(token, settings.JWT_SECRET, settings.JWT_ALGORITHM)
+    if payload:
+        user_token_id = str_decode(payload.get('r'))
+        user_id = str_decode(payload.get('sub'))
+        access_key = payload.get('a')
+        user_token = db.query(UserToken).options(joinedload(UserToken.user)).filter(UserToken.access_key == access_key,
+                                                 UserToken.id == user_token_id,
+                                                 UserToken.user_id == user_id,
+                                                 UserToken.expires_at > datetime.utcnow()
+                                                 ).first()
+        if user_token:
+            return user_token.user
+    return None
+
+# load user
+async def load_user(email: str, db):
+    from app.models.user import User
+    try:
+        user = db.query(User).filter(User.email == email).first()
+    except Exception as user_exec:
+        logging.info(f"User Not Found, Email: {email}")
+        user = None
+    return user

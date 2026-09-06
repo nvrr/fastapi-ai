@@ -5,12 +5,13 @@ from app.routes import user
 
 def create_application():
      # Create database tables for  sqlalchmey to recognie
-    print("Tables:", Base.metadata.tables.keys())
+    # print("Tables:", Base.metadata.tables.keys())
     Base.metadata.create_all(bind=engine)
 
     application = FastAPI()
     # routes
     application.include_router(user.user_router)
+    application.include_router(user.guest_router)
     return application
 
 
