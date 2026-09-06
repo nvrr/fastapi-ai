@@ -7,3 +7,9 @@ class RegisterUserRequest(BaseModel):
     email: EmailStr
     password: str
 
+class VerifyUserRequest(BaseModel):
+    token: str
+    email: EmailStr
+
+
+    
