@@ -15,5 +15,9 @@ class User(Base):
     updated_at = Column(DateTime, nullable=True, default=None, onupdate=datetime.now)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
 
+    def get_context_string(self, context: str):
+        return f"{context}{self.password[-6:]}{self.updated_at.strftime('%m%d%Y%H%M%S')}".strip()
+    
+
     
 

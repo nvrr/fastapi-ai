@@ -1,8 +1,10 @@
+from datetime import datetime 
 from app.models.user import User
 from app.config.security import hash_password, is_password_strong_enough
 from fastapi import HTTPException
+from app.services.email import  send_account_verification_email 
 
-async def create_user_account(data, session):
+async def create_user_account(data, session,background_tasks):
     # print("PASSWORD:", repr(data.password))
     # print("PASSWORD LENGTH:", len(data.password))
     # print("PASSWORD BYTES:", len(data.password.encode("utf-8")))
@@ -21,9 +23,14 @@ async def create_user_account(data, session):
     user.email = data.email
     user.password = hash_password(data.password)
     user.is_active = False
+    user.updated_at = datetime.utcnow()
     session.add(user)
     session.commit()
     session.refresh(user)
+
+     # Account Verification Email
+    await send_account_verification_email(user, background_tasks=background_tasks)
+    return user
 
     return user
 
