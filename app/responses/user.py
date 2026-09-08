@@ -1,6 +1,6 @@
 from typing import Union
 from datetime import datetime
-from pydantic import EmailStr
+from pydantic import EmailStr, BaseModel
 from app.responses.base import BaseResponse
 
 
@@ -12,7 +12,7 @@ class UserResponse(BaseResponse):
     created_at: Union[str, None, datetime] = None # type: ignore
 
 
-class LoginResponse(BaseResponse):
+class LoginResponse(BaseModel):
     access_token: str
     refresh_token: str
     expires_in: int

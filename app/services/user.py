@@ -4,8 +4,8 @@ from sqlalchemy.orm import joinedload
 from app.models.user import User, UserToken
 from app.config.security import generate_token, get_token_payload, hash_password, is_password_strong_enough, load_user, str_decode, str_encode, verify_password
 from fastapi import HTTPException
-from app.services.email import  send_account_verification_email, send_account_activation_confirmation_email 
-from app.utils.email_context import  USER_VERIFY_ACCOUNT
+from app.services.email import  send_account_verification_email, send_account_activation_confirmation_email, send_password_reset_email 
+from app.utils.email_context import  USER_VERIFY_ACCOUNT, FORGOT_PASSWORD
 from app.utils.string import unique_string
 from app.config.settings import get_settings
 
@@ -153,7 +153,45 @@ def _generate_tokens(user, session):
     }
 
 
-
+async def email_forgot_password_link(data, background_tasks, session):
+    user = await load_user(data.email, session)
+    if not user.verified_at:
+        raise HTTPException(status_code=400, detail="Your account is not verified. Please check your email inbox to verify your account.")
+    
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Your account has been dactivated. Please contact support.")
+    
+    await send_password_reset_email(user, background_tasks)
+    
+    
+async def reset_user_password(data, session):
+    user = await load_user(data.email, session)
+    
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid request")
+        
+    
+    if not user.verified_at:
+        raise HTTPException(status_code=400, detail="Invalid request")
+    
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Invalid request")
+    
+    user_token = user.get_context_string(context=FORGOT_PASSWORD)
+    try:
+        token_valid = verify_password(user_token, data.token)
+    except Exception as verify_exec:
+        logging.exception(verify_exec)
+        token_valid = False
+    if not token_valid:
+        raise HTTPException(status_code=400, detail="Invalid window.")
+    
+    user.password = hash_password(data.password)
+    user.updated_at = datetime.now()
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    # Notify user that password has been updated
 
 
 

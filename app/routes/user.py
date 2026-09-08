@@ -1,12 +1,13 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status, Header
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
 
-from app.responses.user import UserResponse, LoginResponse
-from app.schemas.user import RegisterUserRequest, VerifyUserRequest
 from app.config.database import get_session
+from app.responses.user import UserResponse, LoginResponse
+from app.schemas.user import RegisterUserRequest, ResetRequest, VerifyUserRequest, EmailRequest
 from app.services import user
+
 
 user_router = APIRouter(
     prefix="/users",
@@ -39,8 +40,15 @@ async def user_login(data: OAuth2PasswordRequestForm = Depends(), session: Sessi
 async def refresh_token(refresh_token = Header(), session: Session = Depends(get_session)):
     return await user.get_refresh_token(refresh_token, session)
 
+@guest_router.post("/forgot-password", status_code=status.HTTP_200_OK)
+async def forgot_password(data: EmailRequest, background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
+    await user.email_forgot_password_link(data, background_tasks, session)
+    return JSONResponse({"message": "A email with password reset link has been sent to you."})
 
-
+@guest_router.put("/reset-password", status_code=status.HTTP_200_OK)
+async def reset_password(data: ResetRequest, session: Session = Depends(get_session)):
+    await user.reset_user_password(data, session)
+    return JSONResponse({"message": "Your password has been updated."})
 
 
 
