@@ -1,5 +1,7 @@
 import logging
 
+from fastapi import Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
 import jwt
 from passlib.context import CryptContext
 import base64
@@ -16,7 +18,9 @@ SPECIAL_CHARACTERS = ['@', '#', '$', '%', '=', ':', '?', '.', '/', '|', '~', '>'
 settings = get_settings()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
+# tokenUrl="/auth/login" -does not mean OAuth2PasswordBearer calls /auth/login
+# "The endpoint where the client can obtain an OAuth2 token is /auth/login."
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 def hash_password(password):
     return pwd_context.hash(password)
@@ -74,6 +78,7 @@ def generate_token(payload: dict, secret: str, algo: str, expiry: timedelta):
 
 # get user after decode by decode token methode: get_token_payload
 async def get_token_user(token: str, db):
+    # # decode token - get_token_payload:  
     payload = get_token_payload(token, settings.JWT_SECRET, settings.JWT_ALGORITHM)
     if payload:
         user_token_id = str_decode(payload.get('r'))
@@ -97,3 +102,9 @@ async def load_user(email: str, db):
         logging.info(f"User Not Found, Email: {email}")
         user = None
     return user
+
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_session)):
+    user = await get_token_user(token=token, db=db)
+    if user:
+        return user
+    raise HTTPException(status_code=401, detail="Not authorised.")
