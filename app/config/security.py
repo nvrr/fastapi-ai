@@ -1,6 +1,7 @@
 import logging
+from typing import Callable
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 import jwt
 from passlib.context import CryptContext
@@ -11,7 +12,7 @@ from datetime import datetime, timedelta
 from app.config import settings
 from app.config.database import get_session
 from app.config.settings import get_settings
-from app.models.user import UserToken
+from app.models.user import Role, User, UserToken
 
 SPECIAL_CHARACTERS = ['@', '#', '$', '%', '=', ':', '?', '.', '/', '|', '~', '>']
 
@@ -108,3 +109,21 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     if user:
         return user
     raise HTTPException(status_code=401, detail="Not authorised.")
+
+# Role - admin or user
+def require_roles(*allowed_roles: Role) -> Callable:
+    """
+    Dependency factory that enforces role-based access control.
+
+    Usage:
+        @router.get("/admin/users", dependencies=[Depends(require_roles(Role.admin))])
+        @router.get("/reports", dependencies=[Depends(require_roles(Role.admin, Role.editor))])
+    """
+    def role_guard(user: User = Depends(get_current_user)) -> User:
+        if user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Required role(s): {', '.join(r.value for r in allowed_roles)}",
+            )
+        return user
+    return role_guard

@@ -37,9 +37,9 @@ async def create_user_account(data, session,background_tasks):
 
      # Account Verification Email
     await send_account_verification_email(user, background_tasks=background_tasks)
-    return user
 
     return user
+
 
 async def activate_user_account(data, session, background_tasks):
     

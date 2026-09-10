@@ -1,13 +1,14 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, status, Header
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Header
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.config.database import get_session
+from app.models.user import Role, User
 from app.responses.user import UserResponse, LoginResponse
 from app.schemas.user import RegisterUserRequest, ResetRequest, VerifyUserRequest, EmailRequest
 from app.services import user
-from app.config.security import get_current_user, oauth2_scheme
+from app.config.security import get_current_user, oauth2_scheme, require_roles
 
 
 user_router = APIRouter(
@@ -67,4 +68,63 @@ async def fetch_user(user = Depends(get_current_user)):
 async def get_user_info(pk, session: Session = Depends(get_session)):
     return await user.fetch_user_detail(pk, session)
 
+# Protecting Routes with Role Guards
+@auth_router.get("/mee", status_code=status.HTTP_200_OK, response_model=UserResponse, dependencies=[Depends(require_roles(Role.admin))])
+async def fetch_a_user(user = Depends(get_current_user)):
+    return user
 
+# A route open to any authenticated user
+# @router.get("/", dependencies=[Depends(get_current_user)])
+# def get_tasks(...):
+
+@auth_router.get("/meee", status_code=status.HTTP_200_OK, response_model=UserResponse)
+async def fetch_aa_user(user = Depends(get_current_user)):
+    return user
+
+# Promoting a User's Role
+@auth_router.patch("/{user_id}/role", response_model=User, dependencies=[Depends(require_roles(Role.admin))],
+)
+def update_user_role(
+    user_id: int,
+    new_role: Role,
+    session: Session = Depends(get_session),
+):
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.role = new_role
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+@auth_router.patch(
+    "/{user_id}/activate",
+    response_model=User,
+    dependencies=[Depends(require_roles(Role.admin))],
+)
+def activate_user(user_id: int, session: Session = Depends(get_session)):
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.is_active = True
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+@auth_router.patch(
+    "/{user_id}/deactivate",
+    response_model=User,
+    dependencies=[Depends(require_roles(Role.admin))],
+)
+def deactivate_user(user_id: int, session: Session = Depends(get_session)):
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.is_active = False
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
