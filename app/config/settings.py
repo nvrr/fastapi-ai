@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     # REDIS
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    REDIS_SOCKET_CONNECT_TIMEOUT: int = 2
+    REDIS_SOCKET_TIMEOUT: int = 2
+    REDIS_MAX_CONNECTIONS: int = 50
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
