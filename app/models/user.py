@@ -4,7 +4,7 @@ from datetime import datetime
 from app.config.database import Base
 from sqlalchemy.orm import mapped_column, relationship
 
-# error in role base authentiction
+
 from enum import Enum as PyEnum
 from sqlalchemy import Enum as SQLEnum
 

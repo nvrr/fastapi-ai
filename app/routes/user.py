@@ -123,11 +123,13 @@ async def reset_password(data: ResetRequest, session: Session = Depends(get_sess
 async def fetch_user(user = Depends(get_current_user)):
     return user
 
-
-@auth_router.get("/{pk}", status_code=status.HTTP_200_OK, response_model=UserResponse)
+# get_user_by_id
+@auth_router.get("/{user_id}", status_code=status.HTTP_200_OK, response_model=UserResponse)
 async def get_user_info(pk, session: Session = Depends(get_session)):
-    return await user.fetch_user_detail(pk, session)
+    return await user.fetch_user_detail(user_id, session)
 
+
+# //---------------------------------------------------------------Rolebase authenication apis---start
 # Protecting Routes with Role Guards
 @auth_router.get("/mee", status_code=status.HTTP_200_OK, response_model=UserResponse, dependencies=[Depends(require_roles(Role.admin))])
 async def fetch_a_user(user = Depends(get_current_user)):
@@ -188,3 +190,12 @@ def deactivate_user(user_id: int, session: Session = Depends(get_session)):
     session.commit()
     session.refresh(user)
     return user
+
+
+
+# //---------------------------------------------------------------Rolebase authenication apis---End
+
+
+
+
+
