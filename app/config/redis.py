@@ -12,3 +12,4 @@ redis_client = Redis.from_url(
     socket_timeout=settings.REDIS_SOCKET_TIMEOUT,
     max_connections=settings.REDIS_MAX_CONNECTIONS,
 )
+# This gives your application a shared Redis connection pool.
