@@ -4,6 +4,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.config.database import get_session
+from app.core.rate_limit import rate_limit
 from app.models.user import Role, User
 from app.responses.user import UserResponse, LoginResponse
 from app.schemas.user import RegisterUserRequest, ResetRequest, VerifyUserRequest, EmailRequest
@@ -41,7 +42,15 @@ async def verify_user_account(data: VerifyUserRequest, background_tasks: Backgro
     await user.activate_user_account(data, session, background_tasks)
     return JSONResponse({"message": "Account is activated successfully."})
 
-@guest_router.post("/login", status_code=status.HTTP_200_OK, response_model=LoginResponse)
+@guest_router.post("/login", status_code=status.HTTP_200_OK, response_model=LoginResponse, dependencies=[
+        Depends(
+            rate_limit(
+                limit=2,
+                window=30,
+                key_prefix="login",
+            )
+        )
+    ],)
 async def user_login(data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
     return await user.get_login_token(data, session)
 
@@ -82,7 +91,7 @@ async def fetch_aa_user(user = Depends(get_current_user)):
     return user
 
 # Promoting a User's Role
-@auth_router.patch("/{user_id}/role", response_model=User, dependencies=[Depends(require_roles(Role.admin))],
+@auth_router.patch("/{user_id}/role", response_model=UserResponse, dependencies=[Depends(require_roles(Role.admin))],
 )
 def update_user_role(
     user_id: int,
@@ -101,7 +110,7 @@ def update_user_role(
 
 @auth_router.patch(
     "/{user_id}/activate",
-    response_model=User,
+    response_model=UserResponse,
     dependencies=[Depends(require_roles(Role.admin))],
 )
 def activate_user(user_id: int, session: Session = Depends(get_session)):
@@ -116,7 +125,7 @@ def activate_user(user_id: int, session: Session = Depends(get_session)):
 
 @auth_router.patch(
     "/{user_id}/deactivate",
-    response_model=User,
+    response_model=UserResponse,
     dependencies=[Depends(require_roles(Role.admin))],
 )
 def deactivate_user(user_id: int, session: Session = Depends(get_session)):

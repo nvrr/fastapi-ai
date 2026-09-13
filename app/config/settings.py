@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     # App Secret Key
     SECRET_KEY: str = os.environ.get("SECRET_KEY", "8deadce9449770680910741063cd0a3fe0acb62a8978661f421bbcbb66dc41f1")
 
+    # REDIS
+    REDIS_URL: str = "redis://localhost:6379/0"
 
 @lru_cache
 def get_settings() -> Settings:
