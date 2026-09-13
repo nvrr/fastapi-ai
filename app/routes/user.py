@@ -1,16 +1,20 @@
+from fastapi import Request
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Header
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.config.database import get_session
-from app.core.rate_limit import rate_limit
+from app.core.rate_limit import rate_limit, user_rate_limit
 from app.models.user import Role, User
 from app.responses.user import UserResponse, LoginResponse
 from app.schemas.user import RegisterUserRequest, ResetRequest, VerifyUserRequest, EmailRequest
 from app.services import user
 from app.config.security import get_current_user, oauth2_scheme, require_roles
 
+# redis
+from app.config.redis import redis_client
 
 user_router = APIRouter(
     prefix="/users",
@@ -42,16 +46,33 @@ async def verify_user_account(data: VerifyUserRequest, background_tasks: Backgro
     await user.activate_user_account(data, session, background_tasks)
     return JSONResponse({"message": "Account is activated successfully."})
 
-@guest_router.post("/login", status_code=status.HTTP_200_OK, response_model=LoginResponse, dependencies=[
-        Depends(
-            rate_limit(
-                limit=2,
-                window=30,
-                key_prefix="login",
-            )
+@guest_router.post("/login", status_code=status.HTTP_200_OK, response_model=LoginResponse )
+async def user_login(request: Request, data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
+    client_ip = request.client.host
+
+# username --> email
+    key = f"login:{client_ip}:{data.username}"
+
+    current = redis_client.incr(key)
+
+    if current == 1:
+        redis_client.expire(key, 60)
+
+    if current > 2:
+        ttl = redis_client.ttl(key)
+
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": "Too many login attempts",
+                "retry_after": ttl,
+            },
+            headers={
+                "Retry-After": str(ttl)
+            },
         )
-    ],)
-async def user_login(data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
+
+    # end redis
     return await user.get_login_token(data, session)
 
 @guest_router.post("/refresh", status_code=status.HTTP_200_OK, response_model=LoginResponse)
@@ -68,7 +89,15 @@ async def reset_password(data: ResetRequest, session: Session = Depends(get_sess
     await user.reset_user_password(data, session)
     return JSONResponse({"message": "Your password has been updated."})
 
-@auth_router.get("/me", status_code=status.HTTP_200_OK, response_model=UserResponse)
+@auth_router.get("/me", status_code=status.HTTP_200_OK, response_model=UserResponse, dependencies=[
+        Depends(
+            user_rate_limit(
+                limit=10,
+                window=60,
+                key_prefix="me",
+            )
+        )
+    ])
 async def fetch_user(user = Depends(get_current_user)):
     return user
 
