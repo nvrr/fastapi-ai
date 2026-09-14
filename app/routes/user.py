@@ -125,7 +125,7 @@ async def fetch_user(user = Depends(get_current_user)):
 
 # get_user_by_id
 @auth_router.get("/{user_id}", status_code=status.HTTP_200_OK, response_model=UserResponse)
-async def get_user_info(pk, session: Session = Depends(get_session)):
+async def get_user_info(user_id, session: Session = Depends(get_session)):
     return await user.fetch_user_detail(user_id, session)
 
 

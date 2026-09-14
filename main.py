@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from app.config.database import Base, engine
 from app.models.user import User
 from app.routes import user
+from app.routes import product
 
 def create_application():
      # Create database tables for  sqlalchmey to recognie
@@ -13,6 +14,7 @@ def create_application():
     application.include_router(user.user_router)
     application.include_router(user.guest_router)
     application.include_router(user.auth_router)
+    application.include_router(product.product_router)
     return application
 
 
