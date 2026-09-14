@@ -8,8 +8,10 @@ class Product(Base):
     __tablename__ = 'products'
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(150))
-    description = Column(String(400))
-    is_active = Column(Boolean, default=False)
+    description = Column(String(400), nullable=False)
+    is_active = Column(Boolean,
+    nullable=False,
+    default=True)
     updated_at = Column(DateTime, nullable=True, default=None, onupdate=datetime.now)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
 
