@@ -98,6 +98,44 @@ def delete_product(
     session.commit()
 
 
+# product_filters
+def apply_product_filters(
+    query,
+    search: str | None = None,
+    is_active: bool | None = None,
+    sort_by: str = "id",
+    sort_order: str = "asc",
+):
+    if search:
+        query = query.where(
+            Product.name.ilike(f"%{search}%")
+            | Product.description.ilike(f"%{search}%")
+        )
+
+    if is_active is not None:
+        query = query.where(
+            Product.is_active == is_active
+        )
+
+    sort_columns = {
+        "id": Product.id,
+        "name": Product.name,
+        "created_at": Product.created_at,
+    }
+
+    column = sort_columns.get(sort_by, Product.id)
+
+    if sort_order == "desc":
+        query = query.order_by(column.desc())
+    else:
+        query = query.order_by(column.asc())
+
+    return query
+
+
+
+
+
 
 
 #     model_dump() — Model → Python data

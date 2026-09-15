@@ -1,6 +1,6 @@
 
 
-from typing import Optional
+from typing import Literal, Optional
 
 from sqlalchemy import desc, select
 from fastapi import APIRouter, Depends, Query, Request, status
@@ -10,7 +10,7 @@ from app.models.product import Product
 from app.schemas.pagination import PaginatedResponse, PaginationOffsetParams
 from app.responses.product import ProductResponse
 from app.schemas.product import ProductCreate, ProductUpdate
-from app.services.product_service import create_product, delete_product, get_product, update_product
+from app.services.product_service import apply_product_filters, create_product, delete_product, get_product, update_product
 from app.utils.pagination import offset_pagination,cursor_pagination
 from app.utils.response import Response
 
@@ -29,10 +29,35 @@ def get_offset_products(
     request: Request,
     session: Session = Depends(get_session),
     pagination: PaginationOffsetParams = Depends(),
-):
-   query = select(Product).order_by(Product.id)
 
-   return offset_pagination(
+# filters
+    search: str | None = Query(None),
+    is_active: bool | None = Query(None),
+
+    sort_by: Literal[
+        "id",
+        "name",
+        "created_at",
+    ] = "id",
+
+    sort_order: Literal[
+        "asc",
+        "desc",
+    ] = "asc",
+):
+#    query = select(Product).order_by(Product.id)
+
+    query = select(Product)
+
+    query = apply_product_filters(
+        query=query,
+        search=search,
+        is_active=is_active,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+
+    return offset_pagination(
         session=session,
         query=query,
         request=request,
@@ -46,14 +71,34 @@ def get_offset_products(
     "/cursor-products",
     status_code=status.HTTP_200_OK,
     response_model=PaginatedResponse[list[ProductResponse]],
+
 )
 def get_cursor_products(
     request: Request,
     session: Session = Depends(get_session),
     cursor: Optional[str] = Query(None),
     limit: int = Query(5, ge=1),
+    
+    # filters
+    search: str | None = Query(None),
+    is_active: bool | None = Query(None),
 ):
-    query = select(Product).order_by(Product.id)
+    # query = select(Product).order_by(Product.id)
+
+    query = select(Product)
+
+    if search:
+        query = query.where(
+            Product.name.ilike(f"%{search}%")
+            | Product.description.ilike(f"%{search}%")
+        )
+
+    if is_active is not None:
+        query = query.where(
+            Product.is_active == is_active
+        )
+
+    query = query.order_by(Product.id)
     
     return cursor_pagination(
         session=session,
